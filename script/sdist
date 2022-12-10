@@ -14,7 +14,7 @@ fi
 VERSION="$(grep __VERSION__ "$ROOT/octodns_yamlimproved/__init__.py" | sed -e "s/.* = '//" -e "s/'$//")"
 SHA=$(git rev-parse HEAD)
 python setup.py sdist
-TARBALL="dist/octodns-cloudflare-$SHA.tar.gz"
-mv dist/octodns-cloudflare-$VERSION.tar.gz "$TARBALL"
+TARBALL="dist/octodns-yamlimproved-$SHA.tar.gz"
+mv dist/octodns-yamlimproved-$VERSION.tar.gz "$TARBALL"
 
 echo "Created $TARBALL"

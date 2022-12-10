@@ -7,10 +7,7 @@ An [octoDNS](https://github.com/octodns/octodns/) provider which brings addition
 #### Command line
 
 ```bash
-pip install setuptools
-git clone git@github.com:junnhy5/octodns-yamlimproved.git
-cd octodns-yamlimproved/
-pip install .
+pip install octodns-yamlimproved
 ```
 
 #### requirements.txt/setup.py

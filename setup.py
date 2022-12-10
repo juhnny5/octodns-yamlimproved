@@ -57,6 +57,6 @@ setup(
     packages=find_packages(),
     python_requires='>=3.6',
     tests_require=tests_require,
-    url='https://github.com:junnhy5/octodns-yamlimproved',
+    url='https://github.com/junnhy5/octodns-yamlimproved',
     version=version(),
 )

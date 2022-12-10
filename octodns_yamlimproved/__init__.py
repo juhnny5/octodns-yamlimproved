@@ -12,7 +12,7 @@ from octodns.yaml import safe_load, safe_dump
 from octodns.provider.base import BaseProvider
 from octodns.provider import ProviderException
 
-__VERSION__ = '0.0.1'
+__VERSION__ = '0.0.2'
 
 class YamlProvider(BaseProvider):
     '''

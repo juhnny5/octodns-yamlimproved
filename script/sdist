@@ -11,7 +11,7 @@ if ! git diff-index --quiet HEAD --; then
     exit 1
 fi
 
-VERSION="$(grep __VERSION__ "$ROOT/octodns_cloudflare/__init__.py" | sed -e "s/.* = '//" -e "s/'$//")"
+VERSION="$(grep __VERSION__ "$ROOT/octodns_yamlimproved/__init__.py" | sed -e "s/.* = '//" -e "s/'$//")"
 SHA=$(git rev-parse HEAD)
 python setup.py sdist
 TARBALL="dist/octodns-cloudflare-$SHA.tar.gz"

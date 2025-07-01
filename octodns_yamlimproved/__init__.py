@@ -6,6 +6,7 @@ from collections import defaultdict
 from os import listdir, makedirs
 from os.path import isdir, isfile, join
 import logging
+import os
 
 from octodns.record import Record
 from octodns.yaml import safe_load, safe_dump
@@ -13,6 +14,17 @@ from octodns.provider.base import BaseProvider
 from octodns.provider import ProviderException
 
 __VERSION__ = '0.0.2'
+
+def _list_all_yaml_files_recursive(directory):
+    yaml_files = set()
+    for root, _, files in os.walk(directory):
+        for f in files:
+            if f.endswith('.yaml') or f.endswith('.yml'):
+                filename = os.path.join(root, f)
+                if os.path.isfile(filename):
+                    yaml_files.add(filename)
+    return list(yaml_files)
+
 
 class YamlProvider(BaseProvider):
     '''
@@ -22,10 +34,9 @@ class YamlProvider(BaseProvider):
         class: octodns.provider.yaml.YamlProvider
         # The location of yaml config files (required)
         directory: ./config
-        # Specify a custom zone file name
-        # File present in the directory declared in "directory" without specifying the extension.
-        # (optional, default empty)
-        file_name: "test"
+        # Optionally specify a root folder (relative to directory) where all records will be loaded recursively
+        # (optional, default: use directory itself)
+        records_root: records
         # The ttl to use for records when not specified in the data
         # (optional, default 3600)
         default_ttl: 3600
@@ -36,73 +47,19 @@ class YamlProvider(BaseProvider):
         # (optiona, default False)
         populate_should_replace: false
 
-    Overriding values can be accomplished using multiple yaml providers in the
-    `sources` list where subsequent providers have `populate_should_replace`
-    set to `true`. An example use of this would be a zone that you want to push
-    to external DNS providers and internally, but you want to modify some of
-    the records in the internal version.
+    All records will be loaded from every .yaml or .yml file found recursively in the specified directory (or in the subfolder specified by records_root) and its subdirectories. You do not need to specify a file name: all matching files will be merged.
 
-    config/octodns.com.yaml
-    ---
-    other:
-      type: A
-      values:
-        - 192.30.252.115
-        - 192.30.252.116
-    www:
-      type: A
-      values:
-        - 192.30.252.113
-        - 192.30.252.114
+    Example directory structure:
 
+        config/
+            octodns.com.yaml
+            subfolder/
+                extra.yaml
+            records/
+                zone1.yaml
+                subdir/zone2.yaml
 
-    internal/octodns.com.yaml
-    ---
-    'www':
-      type: A
-      values:
-        - 10.0.0.12
-        - 10.0.0.13
-
-    external.yaml
-    ---
-    providers:
-      config:
-        class: octodns.provider.yaml.YamlProvider
-        directory: ./config
-
-    zones:
-
-      octodns.com.:
-        sources:
-          - config
-        targets:
-          - route53
-
-    internal.yaml
-    ---
-    providers:
-      config:
-        class: octodns.provider.yaml.YamlProvider
-        directory: ./config
-
-      internal:
-        class: octodns.provider.yaml.YamlProvider
-        directory: ./internal
-        populate_should_replace: true
-
-    zones:
-
-      octodns.com.:
-        sources:
-          - config
-          - internal
-        targets:
-          - pdns
-
-    You can then sync our records eternally with `--config-file=external.yaml`
-    and internally (with the custom overrides) with
-    `--config-file=internal.yaml`
+    If records_root: records is set, only files under config/records/ will be loaded.
 
     '''
 
@@ -116,11 +73,11 @@ class YamlProvider(BaseProvider):
         self,
         id,
         directory,
-        file_name="",
         default_ttl=3600,
         enforce_order=True,
         populate_should_replace=False,
         supports_root_ns=True,
+        records_root=None,
         *args,
         **kwargs,
     ):
@@ -128,20 +85,21 @@ class YamlProvider(BaseProvider):
         self.log = logging.getLogger(f'{klass}[{id}]')
         self.log.debug(
             '__init__: id=%s, directory=%s, default_ttl=%d, '
-            'enforce_order=%d, populate_should_replace=%d',
+            'enforce_order=%d, populate_should_replace=%d, records_root=%s',
             id,
             directory,
             default_ttl,
             enforce_order,
             populate_should_replace,
+            records_root,
         )
         super().__init__(id, *args, **kwargs)
-        self.file_name = file_name
         self.directory = directory
         self.default_ttl = default_ttl
         self.enforce_order = enforce_order
         self.populate_should_replace = populate_should_replace
         self.supports_root_ns = supports_root_ns
+        self.records_root = records_root
 
     def copy(self):
         args = dict(self.__dict__)
@@ -211,27 +169,12 @@ class YamlProvider(BaseProvider):
 
         before = len(zone.records)
 
-        utf8_filename = join(self.directory, f'{zone.decoded_name}yaml')
-        if self.file_name == "":
-            utf8_filename, idna_filename = self.get_filenames(zone)
-        else:
-            idna_filename = join(self.directory, f'{self.file_name}.yaml')
-
-        # we prefer utf8
-        if isfile(utf8_filename):
-            if utf8_filename != idna_filename and isfile(idna_filename):
-                raise ProviderException(
-                    f'Both UTF-8 "{utf8_filename}" and IDNA "{idna_filename}" exist for {zone.decoded_name}'
-                )
-            filename = utf8_filename
-        else:
-            self.log.warning(
-                'populate: "%s" does not exist, falling back to try idna version "%s"',
-                utf8_filename,
-                idna_filename,
-            )
-            filename = idna_filename
-        self._populate_from_file(filename, zone, lenient)
+        # Utiliser records_root si défini, sinon directory
+        search_dir = join(self.directory, self.records_root) if self.records_root else self.directory
+        yaml_filenames = _list_all_yaml_files_recursive(search_dir)
+        self.log.info('populate:   found %s YAML files (recursive) in %s', len(yaml_filenames), search_dir)
+        for yaml_filename in yaml_filenames:
+            self._populate_from_file(yaml_filename, zone, lenient)
 
         self.log.info(
             'populate:   found %s records, exists=False',

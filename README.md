@@ -30,10 +30,9 @@ providers:
         class: octodns_yamlimproved.YamlProvider
         # The location of yaml config files (required)
         directory: ./config
-        # Specify a custom zone file name
-        # File present in the directory declared in "directory" without specifying the extension.
-        # (optional, default empty)
-        file_name: "root"
+        # Optionally specify a root folder (relative to directory) where all records will be loaded recursively
+        # (optional, default: use directory itself)
+        records_root: records
         # The ttl to use for records when not specified in the data
         # (optional, default 3600)
         default_ttl: 3600
@@ -41,9 +40,11 @@ providers:
         # (optional, default True)
         enforce_order: true
         # Whether duplicate records should replace rather than error
-        # (optiona, default False)
+        # (optional, default False)
         populate_should_replace: false
 ```
+
+> **How it works**: All `.yaml` or `.yml` files found in the specified directory (and its subdirectories) will be automatically loaded and merged. If `records_root` is set, only files under this subfolder (relative to `directory`) will be considered. You no longer need to specify a particular file name—just place your files in the desired folder.
 
 ### Support Information
 
